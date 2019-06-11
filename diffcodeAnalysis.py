@@ -1,6 +1,8 @@
+from collections import deque
 import ast
 import json
 from collections import defaultdict
+
 
 def MultiTargetAssignment(ast_node):
     '''
@@ -9,6 +11,7 @@ def MultiTargetAssignment(ast_node):
         a, b = 1, 2
     '''
     return isinstance(ast_node.targets[0], ast.Tuple)
+
 
 def FilteredComprehension(ast_node):
     '''
@@ -21,6 +24,7 @@ def FilteredComprehension(ast_node):
             return True
     return False
 
+
 def MultilevelComprehension(ast_node):
     '''
     Detects usage of a comprehension construct with 2 or more for's.
@@ -29,6 +33,7 @@ def MultilevelComprehension(ast_node):
     '''
     return len(ast_node.generators) > 1
 
+
 def ChainedCompare(ast_node):
     '''
     Detects usage of a chained sequence of comparisons.
@@ -36,6 +41,7 @@ def ChainedCompare(ast_node):
         1 < x < y <= 5
     '''
     return len(ast_node.ops) > 1
+
 
 def KeywordArgumentUsage(ast_node):
     '''
@@ -46,36 +52,41 @@ def KeywordArgumentUsage(ast_node):
     '''
     return len(ast_node.keywords) > 0
 
+
 comprehension = 'Comprehension', FilteredComprehension, MultilevelComprehension
 
 # A helper function
+
+
 def makeComprehensionSpec(collection_type):
     return (collection_type + 'Comprehension',
             collection_type + 'Display',
             *comprehension)
+
 
 # A map defining construct names for listed AST node types and/or checks
 # that must be performed on such AST nodes. In the latter case, if a node
 # satisfies the test, the name of the test function is used as the detected
 # construct name.
 construct_def_map = {
-    ast.FunctionDef :   ('FunctionDef',),
-    ast.ClassDef :      ('ClassDef',),
-    ast.IfExp :         ('IfExpression',),
-    ast.Assign :        ('Assignment', MultiTargetAssignment ),
-    ast.AugAssign :     ('AugmentedAssignment',),
-    ast.List :          ('ListDisplay',),
-    ast.ListComp :      makeComprehensionSpec('List'),
-    ast.Set :           ('SetDisplay',),
-    ast.SetComp :       makeComprehensionSpec('Set'),
-    ast.Dict :          ('DictionaryDisplay',),
-    ast.DictComp :      makeComprehensionSpec('Dictionary'),
-    ast.GeneratorExp :  ('GeneratorExpression', *comprehension),
-    ast.Compare :       (ChainedCompare,),
-    ast.Subscript :     ('Subscription',),
-    ast.Slice :         ('Slicing',),
-    ast.Call :          (KeywordArgumentUsage,)
+    ast.FunctionDef:   ('FunctionDef',),
+    ast.ClassDef:      ('ClassDef',),
+    ast.IfExp:         ('IfExpression',),
+    ast.Assign:        ('Assignment', MultiTargetAssignment),
+    ast.AugAssign:     ('AugmentedAssignment',),
+    ast.List:          ('ListDisplay',),
+    ast.ListComp:      makeComprehensionSpec('List'),
+    ast.Set:           ('SetDisplay',),
+    ast.SetComp:       makeComprehensionSpec('Set'),
+    ast.Dict:          ('DictionaryDisplay',),
+    ast.DictComp:      makeComprehensionSpec('Dictionary'),
+    ast.GeneratorExp:  ('GeneratorExpression', *comprehension),
+    ast.Compare:       (ChainedCompare,),
+    ast.Subscript:     ('Subscription',),
+    ast.Slice:         ('Slicing',),
+    ast.Call:          (KeywordArgumentUsage,)
 }
+
 
 def getAllConstructs(tree):
     result = defaultdict(int)
@@ -90,6 +101,7 @@ def getAllConstructs(tree):
 
     return dict(result)
 
+
 def countNodesOfGivenTypes(tree, node_types):
     result = defaultdict(int)
 
@@ -98,6 +110,7 @@ def countNodesOfGivenTypes(tree, node_types):
             result[type(node).__name__] += 1
 
     return dict(result)
+
 
 statementNodeTypes = frozenset([ast.While,
                                 ast.For,
@@ -114,21 +127,22 @@ statementNodeTypes = frozenset([ast.While,
                                 ast.Yield])
 
 # Collect all statements
+
+
 def getAllStatements(tree):
     return countNodesOfGivenTypes(tree, statementNodeTypes)
 
+
 def getAllExpr(tree):
-  result = defaultdict(int)
-  for node in ast.walk(tree):
-    if isinstance(node, ast.UnaryOp) or isinstance(node, ast.BinOp) or isinstance(node, ast.BoolOp):
-      result[type(node.op).__name__] += 1
-    elif isinstance(node, ast.Compare):
-      for op in node.ops:
-        result[type(op).__name__] += 1
+    result = defaultdict(int)
+    for node in ast.walk(tree):
+        if isinstance(node, ast.UnaryOp) or isinstance(node, ast.BinOp) or isinstance(node, ast.BoolOp):
+            result[type(node.op).__name__] += 1
+        elif isinstance(node, ast.Compare):
+            for op in node.ops:
+                result[type(op).__name__] += 1
+    return dict(result)
 
-  return dict(result)
-
-from collections import deque
 
 class FuncCallVisitor(ast.NodeVisitor):
     def __init__(self):
@@ -136,9 +150,8 @@ class FuncCallVisitor(ast.NodeVisitor):
 
     @property
     def name(self):
-        #print(self._name)
-        return ''.join(self._name) # was ".".join() removing . option
-
+        # print(self._name)
+        return ''.join(self._name)  # was ".".join() removing . option
 
     @name.deleter
     def name(self):
@@ -148,15 +161,13 @@ class FuncCallVisitor(ast.NodeVisitor):
     def visit_Name(self, node):
         self._name.appendleft(node.id)
 
-
     def visit_Attribute(self, node):
         try:
             self._name.appendleft(node.attr)
             # hacking for demonstration list of functions
-            #self._name.appendleft(node.value.id)
+            # self._name.appendleft(node.value.id)
             self._name.appendleft("")
-
-            #print(node.value.id)
+            # print(node.value.id)
         except AttributeError:
             self.generic_visit(node)
 
@@ -170,8 +181,9 @@ def getFuncCalls(tree):
             func_calls.append(callvisitor.name)
     result = defaultdict(int)
     for item in func_calls:
-      result[item] += 1
+        result[item] += 1
     return dict(result)
+
 
 def getFuncDefs(tree):
     r = set()
@@ -180,6 +192,7 @@ def getFuncDefs(tree):
             r.add(node.name)
 
     return list(r)
+
 
 def getAllImports(a):
     """Gather all imported module names"""
@@ -191,42 +204,39 @@ def getAllImports(a):
             for alias in child.names:
                 imports.add(alias.name)
         elif type(child) == ast.ImportFrom:
-            for alias in child.names: # these are all functions
+            for alias in child.names:  # these are all functions
                 imports.add(child.module + "." + alias.name)
-
-
     result = {}
     for item in imports:
-        result[item] = 1 #True
+        result[item] = 1  # True
     return result
 
+
 def simplify(d):
-  result = {}
-  for key in d: 
-    if d[key] != {}:
-      result[key] = d[key]
-  return result
+    result = {}
+    for key in d:
+        if d[key] != {}:
+            result[key] = d[key]
+    return result
 
-  
+
 def code_features(src):
-  tree = ast.parse(src)
+    tree = ast.parse(src)
+    funcCalls = getFuncCalls(tree)
+    result = {
+        "statements":  getAllStatements(tree),
+        "functions":   funcCalls,
+        "imports":     getAllImports(tree),
+        "expressions": getAllExpr(tree),
+        "constructs": getAllConstructs(tree)
+    }
+    definedFunctions = getFuncDefs(tree)
+    for df in definedFunctions:
+        if df in funcCalls:
+            del funcCalls[df]
+    return simplify(result)
 
-  funcCalls = getFuncCalls(tree)
-  result = {
-            "statements":  getAllStatements(tree),
-            "functions":   funcCalls,
-            "imports":     getAllImports(tree),
-            "expressions": getAllExpr(tree),
-            "constructs" : getAllConstructs(tree)
-           }
 
-  definedFunctions = getFuncDefs(tree)
-  for df in definedFunctions:
-      if df in funcCalls:
-        del funcCalls[df]
-
-  return simplify(result)
- 
 def getIndexPage():
     defaultGetResponse = """
     <!DOCTYPE html>
@@ -296,42 +306,44 @@ def getIndexPage():
     """
     return defaultGetResponse
 
+
 def solution_features(parameters):
-    givenCode = parameters.get("givenCode","")
+    givenCode = parameters.get("givenCode", "")
     givenFeatures = {}
-    solutionCode = parameters.get("solutionCode","")
+    solutionCode = parameters.get("solutionCode", "")
     solutionFeatures = {}
     difference = {}
-
-    givenNotebook = parameters.get("givenNotebook",None)
-    solutionNotebook = parameters.get("solutionNotebook","")
-    targetCell = parameters.get("targetCell",0)
+    givenNotebook = parameters.get("givenNotebook", None)
+    solutionNotebook = parameters.get("solutionNotebook", "")
+    targetCell = parameters.get("targetCell", 0)
 
     if givenNotebook:
         givenCode = "".join(givenNotebook["cells"][targetCell]['source'])
         print("Given code")
         print(givenCode)
         print("")
-    
+
     if solutionNotebook:
         solutionCode = "".join(solutionNotebook["cells"][targetCell]['source'])
         print("Solution code")
         print(solutionCode)
         print("")
 
-
     if givenCode != "":
         src = givenCode
-        givenFeatures = code_features(src)
+        try:
+            givenFeatures = code_features(src)
+        except:
+            givenFeatures = {}
 
-    if solutionCode != "": 
+    if solutionCode != "":
         src = solutionCode
         solutionFeatures = code_features(src)
-    
-    result = {"givenCode": givenCode,
-            "givenFeatures": givenFeatures}
 
-    if solutionCode: 
+    result = {"givenCode": givenCode,
+              "givenFeatures": givenFeatures}
+
+    if solutionCode:
         result["solutionCode"] = solutionCode
         result["solutionFeatures"] = solutionFeatures
 
@@ -339,10 +351,12 @@ def solution_features(parameters):
         # Calculate the difference by subracting keys present in both.
         difference = {}
         for featureType in ["statements", "functions", "imports", "expressions", "constructs"]:
-            difference[featureType] = {k:v for k,v in solutionFeatures.get(featureType,{}).items() if k not in givenFeatures.get(featureType,{})}
-            difference  = simplify(difference)
+            difference[featureType] = {k: v for k, v in solutionFeatures.get(
+                featureType, {}).items() if k not in givenFeatures.get(featureType, {})}
+            difference = simplify(difference)
             result['difference'] = difference
     return result
+
 
 def lambda_handler(event, context):
     method = event.get('httpMethod', {})
@@ -357,9 +371,10 @@ def lambda_handler(event, context):
         }
 
     if method == 'POST':
-        bodyContent = event.get('body',{}) 
+        bodyContent = event.get('body', {})
         parsedBodyContent = json.loads(bodyContent)
         solFeatures = solution_features(parsedBodyContent)
+        print(solFeatures)
         return {
             "statusCode": 200,
             "headers": {
